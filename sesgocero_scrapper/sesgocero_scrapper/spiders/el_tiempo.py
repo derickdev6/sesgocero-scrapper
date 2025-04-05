@@ -82,6 +82,7 @@ class ElTiempoSpider(scrapy.Spider):
                     date=date,
                     url=response.url,
                     source="El Tiempo",
+                    processed=False,
                 )
             else:
                 self.logger.warning(

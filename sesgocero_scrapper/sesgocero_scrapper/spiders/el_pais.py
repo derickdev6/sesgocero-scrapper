@@ -79,6 +79,7 @@ class ElPaisSpider(scrapy.Spider):
                     date=date,
                     url=response.url,
                     source="El Pais",
+                    processed=False,
                 )
             else:
                 self.logger.warning(

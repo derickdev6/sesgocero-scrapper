@@ -80,6 +80,7 @@ class ElEspectadorSpider(scrapy.Spider):
                     date=date,
                     url=response.url,
                     source="El Espectador",
+                    processed=False,
                 )
                 yield item
         except Exception as e:
