@@ -73,6 +73,7 @@ class ElEspectadorSpider(scrapy.Spider):
             # Only yield if we have at least a title and some content
             if title and content:
                 item = NewsItem(
+                    id="ElEspectador_" + title.strip(),
                     title=title.strip(),
                     subtitle=subtitle.strip() if subtitle else None,
                     content=content,

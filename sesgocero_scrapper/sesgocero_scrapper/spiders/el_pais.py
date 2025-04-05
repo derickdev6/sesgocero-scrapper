@@ -72,6 +72,7 @@ class ElPaisSpider(scrapy.Spider):
             # Only yield if we have at least a title and some content
             if title and content:
                 yield NewsItem(
+                    id="ElPais_" + title.strip(),
                     title=title.strip(),
                     subtitle=subtitle.strip() if subtitle else None,
                     content=content,

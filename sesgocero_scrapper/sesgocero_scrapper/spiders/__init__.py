@@ -4,3 +4,5 @@
 # your spiders.
 
 from .el_pais import ElPaisSpider
+from .el_espectador import ElEspectadorSpider
+from .el_tiempo import ElTiempoSpider

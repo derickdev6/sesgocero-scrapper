@@ -15,3 +15,5 @@ __pycache__/
 *.jsonl.gz.part
 *.jsonl.gz.part.1
 *.jsonl.gz.part.2
+
+.env
