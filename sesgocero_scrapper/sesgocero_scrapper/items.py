@@ -14,4 +14,5 @@ class NewsItem(scrapy.Item):
     content = scrapy.Field()
     url = scrapy.Field()
     source = scrapy.Field()
-    processed = scrapy.Field()
+    cleaned = scrapy.Field()
+    political_orientation = scrapy.Field()
