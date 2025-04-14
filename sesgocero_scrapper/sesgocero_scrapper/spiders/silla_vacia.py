@@ -1,7 +1,6 @@
-# This is a spider for the website elpais.com
+# This is a spider for the website lasillavacia.com
 
 import scrapy
-from bs4 import BeautifulSoup
 from ..items import NewsItem
 from datetime import datetime
 from urllib.parse import urljoin
@@ -11,9 +10,9 @@ import logging
 logging.basicConfig(level=logging.CRITICAL)  # Change to WARNING or higher
 
 
-class ElPaisSpider(scrapy.Spider):
-    name = "el_pais"
-    start_urls = ["https://elpais.com/america-colombia/actualidad/"]
+class SillaVaciaSpider(scrapy.Spider):
+    name = "silla_vacia"
+    start_urls = ["https://www.lasillavacia.com/"]
     custom_settings = {
         "ROBOTSTXT_OBEY": True,
         "DOWNLOAD_DELAY": 0.5,  # Add delay between requests
@@ -22,7 +21,7 @@ class ElPaisSpider(scrapy.Spider):
 
     def parse(self, response):
         # Extract all article URLs from the page
-        article_urls = response.css("h2.c_t a::attr(href)").getall()
+        article_urls = response.css("h2.entry-title a::attr(href)").getall()
 
         for url in article_urls:
             # Ensure we have absolute URLs
@@ -32,18 +31,17 @@ class ElPaisSpider(scrapy.Spider):
     def parse_article(self, response):
         try:
             # Extract title with fallback
-            title = response.css("h1.a_t::text").get()
+            title = response.css("h1.entry-title::text").get()
             if not title:
                 title = None
 
             # Extract subtitle with fallback
-            subtitle = response.css("h2.a_st::text").get()
+            subtitle = response.css("h2.entry-title::text").get()
             if not subtitle:
                 subtitle = None
 
             # Extract content with better error handling
-            content_elements = response.css("div.a_c p, div.a_c h2")
-            # Join all content elements into a single string
+            content_elements = response.css("div.entry-content p::text")
             content = " ".join(content_elements.getall())
             if not content:
                 content = "No content found"
@@ -53,12 +51,11 @@ class ElPaisSpider(scrapy.Spider):
 
             # Try different selectors for the date
             selectors = [
-                "div.a_md_f a::attr(data-date)",  # Primary selector
+                "span.posted-on time.published::attr(datetime)",  # Primary selector
             ]
 
             for selector in selectors:
                 date_str = response.css(selector).get()
-                print(f"Date string: {date_str}\n{30*'*-'}")
                 if date_str:
                     break
 
@@ -66,14 +63,14 @@ class ElPaisSpider(scrapy.Spider):
             date = self.parse_date(date_str)
 
             # Yield item
-            if title and subtitle and content and date:
+            if title and content and date:
                 yield NewsItem(
                     title=title.strip(),
-                    subtitle=subtitle.strip(),
+                    subtitle=subtitle.strip() if subtitle else "",
                     content=content,
                     date=date if date else None,
                     url=response.url,
-                    source="El Pais",
+                    source="La Silla Vacia",
                     cleaned=False,
                 )
             else:

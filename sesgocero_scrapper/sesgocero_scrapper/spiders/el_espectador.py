@@ -6,6 +6,10 @@ from ..items import NewsItem
 from datetime import datetime
 from urllib.parse import urljoin
 import re
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.CRITICAL)  # Change to WARNING or higher
 
 
 class ElEspectadorSpider(scrapy.Spider):
@@ -29,26 +33,21 @@ class ElEspectadorSpider(scrapy.Spider):
     def parse_article(self, response):
         try:
             # Extract title with fallback
-            title = response.css("h1.Title::text").get()
+            title = response.css("h1.ArticleHeader-Title::text").get()
             if not title:
-                title = response.css("h1::text").get()
+                title = None
 
             # Extract subtitle with fallback
             subtitle = response.css("h2.ArticleHeader-Hook div::text").get()
             if not subtitle:
-                subtitle = response.css("h2::text").get()
+                subtitle = None
 
             # Extract content with better error handling
             content_elements = response.css("p.font--secondary::text")
-            content = []
-            for element in content_elements:
-                html_content = element.get()
-                if html_content:
-                    text = BeautifulSoup(html_content, "html.parser").get_text(
-                        strip=True
-                    )
-                    if text:
-                        content.append(text)
+            # Join all content elements into a single string
+            content = " ".join(content_elements.getall())
+            if not content:
+                content = "No content found"
 
             # Extract date with multiple selectors and better error handling
             date_str = None
@@ -56,10 +55,6 @@ class ElEspectadorSpider(scrapy.Spider):
             # Try different selectors for the date
             selectors = [
                 "div.Datetime::text",  # Try text content first
-                "div.Card-Date span::text",
-                "div.Card-Date a::text",
-                "div.Article-Date::text",
-                "div.Article-Header time::text",
             ]
 
             for selector in selectors:
@@ -70,20 +65,21 @@ class ElEspectadorSpider(scrapy.Spider):
             # Parse the date using our helper method
             date = self.parse_date(date_str)
 
-            # Only yield if we have at least a title and some content
-            if title and content:
-                item = NewsItem(
-                    id="ElEspectador_" + title.strip(),
+            # Yield item
+            if title and subtitle and content and date:
+                yield NewsItem(
                     title=title.strip(),
-                    subtitle=subtitle.strip() if subtitle else None,
+                    subtitle=subtitle.strip(),
                     content=content,
-                    date=date,
+                    date=date if date else None,
                     url=response.url,
                     source="El Espectador",
                     cleaned=False,
-                    political_orientation="unknown",
                 )
-                yield item
+            else:
+                self.logger.warning(
+                    f"Skipping article {response.url}: Missing required fields\n{10*'*-'}\n{title}\n{subtitle}\n{content[:50]}\n{date}\n{10*'*-'}\n"
+                )
         except Exception as e:
             self.logger.error(f"Error parsing article: {e}")
             pass

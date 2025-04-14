@@ -1,47 +1,68 @@
-# Define your item pipelines here
-#
-# Don't forget to add your pipeline to the ITEM_PIPELINES setting
-# See: https://docs.scrapy.org/en/latest/topics/item-pipeline.html
-
-
-# useful for handling different item types with a single interface
 from itemadapter import ItemAdapter
-import os
 from pymongo import MongoClient
 from dotenv import load_dotenv
+from bs4 import BeautifulSoup
+from datetime import datetime
+import os
+import re
+import logging
 
-
-class SesgoceroScrapperPipeline:
-    def process_item(self, item, spider):
-        return item
+logger = logging.getLogger(__name__)
 
 
 class MongoDBPipeline:
     def __init__(self):
         load_dotenv()
-        self.client = MongoClient(
-            os.getenv(
-                "MONGODB_URI",
-                "mongodb+srv://derickdev6:AHrkkIM9SBZWtjsN@ecolog.vtaw5.mongodb.net/?retryWrites=true&w=majority&appName=sesgocero",
-            )
-        )
+        self.client = MongoClient(os.getenv("MONGODB_URI"))
         self.db = self.client[os.getenv("MONGODB_DATABASE", "sesgocero")]
         self.collection = self.db[os.getenv("MONGODB_COLLECTION", "articles")]
+        self.collection.create_index("url", unique=True)
 
-        # Create a unique index on the id field
-        self.collection.create_index("id", unique=True)
+    def clean_html(self, text):
+        if not text:
+            return ""
+        soup = BeautifulSoup(text, "html.parser")
+        cleaned = soup.get_text(separator=" ", strip=True)
+        return re.sub(r"\s+", " ", cleaned)
+
+    def normalize_text(self, text):
+        if not text:
+            return ""
+        return re.sub(r"\s+", " ", text.strip())
 
     def process_item(self, item, spider):
-        # Convert datetime to string for MongoDB storage
-        if item.get("date"):
-            item["date"] = item["date"].isoformat()
+        adapter = ItemAdapter(item)
 
-        # Use update_one with upsert to handle duplicates
+        # Validación de campo obligatorio
+        if not adapter.get("url"):
+            spider.logger.warning("Item descartado: faltante campo 'url'")
+            return None
+
+        # Limpieza de campos de texto
+        for field in ["title", "subtitle", "content"]:
+            if adapter.get(field):
+                adapter[field] = self.normalize_text(
+                    self.clean_html(adapter.get(field))
+                )
+
+        # Fecha a ISO solo si es datetime
+        if adapter.get("date") and isinstance(adapter["date"], datetime):
+            adapter["date"] = adapter["date"].isoformat()
+
+        # Evitar updates si no hay cambios
+        existing = self.collection.find_one({"url": adapter["url"]})
+        if existing:
+            existing.pop("_id", None)
+            current_data = dict(adapter)
+            if all(existing.get(k) == current_data.get(k) for k in current_data):
+                return item
+
+        # Insertar o actualizar
         self.collection.update_one(
-            {"id": item["id"]},  # filter by id
-            {"$set": dict(item)},  # update with new data
-            upsert=True,  # create if doesn't exist
+            {"url": adapter["url"]}, {"$set": dict(adapter)}, upsert=True
         )
+
+        spider.logger.info(f"Artículo guardado: {adapter.get('title')}")
         return item
 
     def close_spider(self, spider):
