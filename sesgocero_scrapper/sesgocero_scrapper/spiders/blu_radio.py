@@ -43,7 +43,9 @@ class BluRadioSpider(scrapy.Spider):
                 subtitle = None
 
             # Extract content with better error handling
-            content_elements = response.css("div.ArticlePage-body p::text")
+            content_elements = response.css(
+                "div.RichTextArticleBody div.RichTextBody p::text"
+            )
             content = " ".join(content_elements.getall())
             if not content:
                 content = "No content found"
